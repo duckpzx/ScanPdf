@@ -405,9 +405,14 @@ function xpost(url,body,label){
     x.upload.onprogress=function(e){if(e.lengthComputable)sm(label,false,Math.min(100,Math.round(e.loaded/e.total*100)))};
     x.upload.onload=function(){sm("Đang chờ phản hồi…",true)};
     x.onload=function(){try{res(JSON.parse(x.responseText))}catch(err){rej(new Error("Phản hồi không hợp lệ"))}};
-    x.onerror=function(){rej(new Error("Lỗi mạng"))};
+    x.onerror=function(){fpost(url,body,label).then(res,rej)};
     x.send(body);
   });
+}
+async function fpost(url,body,label){
+  sm(label,true);
+  var r=await fetch(url,{method:"POST",body:body});
+  return await r.json();
 }
 $("sx").onclick=closeAll;$("scrim").onclick=closeAll;
 async function save(blob,name){
@@ -431,7 +436,7 @@ async function send(blob,name){
     if(t==="1"){
       sm("Đang chuẩn bị file…",true);
       var b64=await new Promise(function(r,j){var fr=new FileReader();fr.onload=function(){r(String(fr.result).split(",")[1])};fr.onerror=j;fr.readAsDataURL(blob)});
-      var j=await xpost($("gu").value.trim(),JSON.stringify({key:$("gk").value,name:name,data:b64}),"Đang gửi lên Google Drive");
+      var j=await fpost($("gu").value.trim(),JSON.stringify({key:$("gk").value,name:name,data:b64}),"Đang gửi lên Google Drive");
       sm(j.ok?"Đã gửi lên Drive · "+name+" · "+fmt(blob.size):"Drive từ chối: "+j.error);
     }else if(t==="2"){
       var fd=new FormData();fd.append("chat_id",$("tc").value.trim());fd.append("document",blob,name);
