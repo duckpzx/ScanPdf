@@ -88,6 +88,11 @@ body.camon .cam{position:sticky;bottom:calc(100px + env(safe-area-inset-bottom,0
 .sheet h2{font-size:22px;margin:4px 0 2px;text-align:center}
 .sheet .mut{text-align:center;color:var(--mut);font-size:15px;margin:0 0 14px;word-break:break-all}
 .sheet .row{margin-top:10px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--fill);border-top-color:var(--ac);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px;margin-right:8px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.pbar{display:none;height:4px;border-radius:2px;background:var(--fill);overflow:hidden;margin:-6px auto 14px;max-width:260px}
+.pbar i{display:block;height:100%;width:0;background:var(--ac);border-radius:2px;transition:width .2s ease}
+.pct{font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -174,6 +179,7 @@ body.camon .cam{position:sticky;bottom:calc(100px + env(safe-area-inset-bottom,0
   <div class="grab"></div>
   <h2 id="stt">Đang tạo PDF</h2>
   <p class="mut" id="sinfo"></p>
+  <div class="pbar" id="pbar"><i id="pfill"></i></div>
   <div id="sbtns" style="display:none">
     <div class="row"><button class="btn pri wide" id="shr">Chia sẻ (Gemini, Zalo, Mail…)</button></div>
     <div class="msg" style="text-align:center">Muốn đưa vào cuộc trò chuyện Gemini cũ: bấm Lưu về máy (hoặc chọn Lưu vào Tệp), rồi trong chat cũ bấm dấu + và đính kèm file.</div>
@@ -384,7 +390,25 @@ function buildPdf(imgs,a4){
 /* ---------- xuất, chia sẻ, gửi ---------- */
 function openS(id){$(id).classList.add("on");$("scrim").classList.add("on")}
 function closeAll(){if(busy)return;$("sheet").classList.remove("on");$("nsheet").classList.remove("on");$("scrim").classList.remove("on")}
-function sm(t){$("sinfo").textContent=t}
+function sm(t,spin,pct){
+  var e=$("sinfo"),has=typeof pct==="number";e.textContent="";
+  if(spin&&!has){var s=document.createElement("span");s.className="spin";e.appendChild(s)}
+  e.appendChild(document.createTextNode(t));
+  if(has){var c=document.createElement("span");c.className="pct";c.textContent=" · "+pct+"%";e.appendChild(c)}
+  $("pbar").style.display=has?"block":"none";
+  if(has)$("pfill").style.width=pct+"%";
+}
+function xpost(url,body,label){
+  return new Promise(function(res,rej){
+    var x=new XMLHttpRequest();x.open("POST",url);
+    sm(label,false,0);
+    x.upload.onprogress=function(e){if(e.lengthComputable)sm(label,false,Math.min(100,Math.round(e.loaded/e.total*100)))};
+    x.upload.onload=function(){sm("Đang chờ phản hồi…",true)};
+    x.onload=function(){try{res(JSON.parse(x.responseText))}catch(err){rej(new Error("Phản hồi không hợp lệ"))}};
+    x.onerror=function(){rej(new Error("Lỗi mạng"))};
+    x.send(body);
+  });
+}
 $("sx").onclick=closeAll;$("scrim").onclick=closeAll;
 async function save(blob,name){
   var dl=null;try{dl=window.claude&&await window.claude.use("downloads")}catch(e){}
@@ -405,16 +429,13 @@ async function send(blob,name){
   var t=$("tg").value;
   try{
     if(t==="1"){
-      sm("Đang gửi lên Google Drive…");
+      sm("Đang chuẩn bị file…",true);
       var b64=await new Promise(function(r,j){var fr=new FileReader();fr.onload=function(){r(String(fr.result).split(",")[1])};fr.onerror=j;fr.readAsDataURL(blob)});
-      var res=await fetch($("gu").value.trim(),{method:"POST",body:JSON.stringify({key:$("gk").value,name:name,data:b64})});
-      var j=await res.json();
+      var j=await xpost($("gu").value.trim(),JSON.stringify({key:$("gk").value,name:name,data:b64}),"Đang gửi lên Google Drive");
       sm(j.ok?"Đã gửi lên Drive · "+name+" · "+fmt(blob.size):"Drive từ chối: "+j.error);
     }else if(t==="2"){
-      sm("Đang gửi qua Telegram…");
       var fd=new FormData();fd.append("chat_id",$("tc").value.trim());fd.append("document",blob,name);
-      var r2=await fetch("https://api.telegram.org/bot"+$("tt").value.trim()+"/sendDocument",{method:"POST",body:fd});
-      var j2=await r2.json();
+      var j2=await xpost("https://api.telegram.org/bot"+$("tt").value.trim()+"/sendDocument",fd,"Đang gửi qua Telegram");
       sm(j2.ok?"Đã gửi qua Telegram · "+name+" · "+fmt(blob.size):"Telegram lỗi: "+j2.description);
     }
   }catch(e){sm("Không gửi được ("+(e&&e.message||e)+"). Hãy bấm Lưu về máy hoặc Chia sẻ để không mất file.")}
@@ -427,7 +448,7 @@ $("exp").onclick=async function(){
     for(var bi=0;bi<B.length;bi++){
       var b=B[bi];if(!b.ph.length)continue;nb++;only=b.name.trim();
       if($("cov").checked)imgs.push(await cover(cname(b,bi)));
-      for(var i=0;i<b.ph.length;i++){k++;sm("Đang nén ảnh "+k+"/"+T+"…");imgs.push(await recode(b.ph[i],pr,gray));await new Promise(function(r){setTimeout(r,0)})}
+      for(var i=0;i<b.ph.length;i++){k++;sm("Đang nén ảnh "+k+"/"+T,false,Math.round((k-1)/T*100));imgs.push(await recode(b.ph[i],pr,gray));await new Promise(function(r){setTimeout(r,0)})}
     }
     var blob=buildPdf(imgs,a4),d=new Date(),z=function(n){return("0"+n).slice(-2)};
     var name=(nb===1&&only?slug(only)||"scan":"scan")+"-"+d.getFullYear()+z(d.getMonth()+1)+z(d.getDate())+"-"+z(d.getHours())+z(d.getMinutes())+".pdf";
