@@ -179,7 +179,7 @@ body.camon .cam{position:sticky;bottom:calc(100px + env(safe-area-inset-bottom,0
   <div class="grab"></div>
   <h2>Chưa đặt tên tài liệu</h2>
   <p class="mut">Vẫn chụp mà không đặt tên? Tài liệu không tên sẽ không có trang bìa.</p>
-  <div class="row"><button class="btn" id="mno">Nhập tên</button><button class="btn pri" id="mgo">Chụp không cần tên</button></div>
+  <div class="row"><button class="btn" id="mno">Nhập tên</button><button class="btn pri" id="mgo">Bỏ qua</button></div>
 </div></div>
 <div class="sheet glass" id="sheet"><div>
   <div class="grab"></div>
@@ -299,8 +299,9 @@ $("mgo").onclick=function(){
   if(f)setTimeout(f,0);
 };
 $("mno").onclick=function(){
-  pendingGo=null;closeAll();resumeVideo();
-  var bn=$("bn");bn.scrollIntoView({block:"center",behavior:"smooth"});setTimeout(function(){bn.focus()},350);
+  pendingGo=null;closeAll();stopCam();
+  window.scrollTo({top:0,behavior:"smooth"});
+  setTimeout(function(){$("bn").focus()},350);
 };
 $("un").onclick=function(){var c=cur();if(c.ph.length){URL.revokeObjectURL(c.ph.pop().url);render()}};
 $("mt").onclick=function(){$("mk").checked=!$("mk").checked;$("mk").dispatchEvent(new Event("input"))};
