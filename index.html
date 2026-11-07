@@ -175,6 +175,12 @@ body.camon .cam{position:sticky;bottom:calc(100px + env(safe-area-inset-bottom,0
   <input type="text" id="nn" placeholder="Ví dụ: Biên bản họp số 3" autocomplete="off">
   <div class="row"><button class="btn" id="nc">Hủy</button><button class="btn pri" id="ng">Bắt đầu chụp</button></div>
 </div></div>
+<div class="sheet glass" id="msheet"><div>
+  <div class="grab"></div>
+  <h2>Chưa đặt tên tài liệu</h2>
+  <p class="mut">Vẫn chụp mà không đặt tên? Tài liệu không tên sẽ không có trang bìa.</p>
+  <div class="row"><button class="btn" id="mno">Nhập tên</button><button class="btn pri" id="mgo">Chụp không cần tên</button></div>
+</div></div>
 <div class="sheet glass" id="sheet"><div>
   <div class="grab"></div>
   <h2 id="stt">Đang tạo PDF</h2>
@@ -213,14 +219,14 @@ function toBlob(cv,q){return new Promise(function(r){cv.toBlob(r,"image/jpeg",q)
 function cur(){return B[B.length-1]}
 function total(){return B.reduce(function(a,b){return a+b.ph.length},0)}
 function cname(b,i){return b.name.trim()||"Tài liệu "+(i+1)}
-/* Chưa có tên mà chụp ảnh đầu tiên: hỏi xác nhận. Đồng ý thì chụp không cần tên. */
-function needName(){
+/* Chưa có tên mà chụp ảnh đầu tiên: hỏi xác nhận bằng hộp thoại trong trang (confirm() của iOS làm đơ camera). */
+var pendingGo=null;
+function needName(cb){
   var c=cur();
   if(c.ph.length||c.name.trim()||c.skip)return false;
-  if(confirm("Bạn chưa nhập tên tài liệu. Vẫn chụp mà không đặt tên?")){c.skip=true;return false}
-  var bn=$("bn");bn.scrollIntoView({block:"center",behavior:"smooth"});setTimeout(function(){bn.focus()},300);
-  return true;
+  pendingGo=cb||null;openS("msheet");return true;
 }
+function resumeVideo(){var v=$("v");if(v&&v.srcObject&&v.paused){var p=v.play();if(p&&p.catch)p.catch(function(){})}}
 async function push(cv){
   var b=await toBlob(cv,.9);
   cur().ph.push({id:nid++,blob:b,url:URL.createObjectURL(b),w:cv.width,h:cv.height});render();
@@ -234,7 +240,8 @@ async function addBlob(file){
   await push(cv);
 }
 async function addFiles(list){
-  if(needName())return;
+  list=Array.prototype.slice.call(list);
+  if(needName(function(){addFiles(list)}))return;
   say("Đang xử lý ảnh…");
   for(var i=0;i<list.length;i++){try{await addBlob(list[i])}catch(e){say("Không đọc được một ảnh.")}}
   say("");
@@ -259,12 +266,24 @@ function stopCam(){stopTracks();$("v").srcObject=null;$("cam").classList.remove(
 $("on").onclick=startCam;$("off").onclick=stopCam;
 $("sw").onclick=function(){facing=facing==="environment"?"user":"environment";startCam()};
 document.addEventListener("visibilitychange",function(){if(document.hidden&&stream)stopCam()});
-$("shot").onclick=async function(){
+$("shot").onclick=function(){
   var v=$("v");if(!v.videoWidth)return;
-  if(needName())return;
+  if(needName(doShot))return;
+  doShot();
+};
+async function doShot(){
+  var v=$("v");if(!v.videoWidth)return;
   var fl=$("fl");fl.classList.add("f");setTimeout(function(){fl.classList.remove("f")},60);
   if(navigator.vibrate)navigator.vibrate(15);
   await push(fit(v,v.videoWidth,v.videoHeight));
+}
+$("mgo").onclick=function(){
+  cur().skip=true;var f=pendingGo;pendingGo=null;closeAll();resumeVideo();
+  if(f)setTimeout(f,0);
+};
+$("mno").onclick=function(){
+  pendingGo=null;closeAll();resumeVideo();
+  var bn=$("bn");bn.scrollIntoView({block:"center",behavior:"smooth"});setTimeout(function(){bn.focus()},350);
 };
 $("un").onclick=function(){var c=cur();if(c.ph.length){URL.revokeObjectURL(c.ph.pop().url);render()}};
 $("mt").onclick=function(){$("mk").checked=!$("mk").checked;$("mk").dispatchEvent(new Event("input"))};
@@ -399,7 +418,7 @@ function buildPdf(imgs,a4){
 
 /* ---------- xuất, chia sẻ, gửi ---------- */
 function openS(id){$(id).classList.add("on");$("scrim").classList.add("on")}
-function closeAll(){if(busy)return;$("sheet").classList.remove("on");$("nsheet").classList.remove("on");$("scrim").classList.remove("on")}
+function closeAll(){if(busy)return;$("sheet").classList.remove("on");$("nsheet").classList.remove("on");$("msheet").classList.remove("on");$("scrim").classList.remove("on")}
 function sm(t,spin,pct){
   var e=$("sinfo"),has=typeof pct==="number";e.textContent="";
   if(spin&&!has){var s=document.createElement("span");s.className="spin";e.appendChild(s)}
