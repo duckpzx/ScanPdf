@@ -100,8 +100,8 @@ body.camon .cam{position:sticky;bottom:calc(100px + env(safe-area-inset-bottom,0
 <h1 class="title">Quét tài liệu</h1>
 <p class="sub">Chụp nhiều trang, gộp thành một PDF nhẹ.</p>
 
-<div class="cap">Chi bộ đang chụp</div>
-<div class="grp"><div class="rw"><input type="text" id="bn" placeholder="Nhập tên chi bộ (in ở trang bìa)" autocomplete="off"></div></div>
+<div class="cap">Tài liệu đang chụp</div>
+<div class="grp"><div class="rw"><input type="text" id="bn" placeholder="Nhập tên tài liệu (in ở trang bìa)" autocomplete="off"></div></div>
 <div style="height:12px"></div>
 <div class="cam" id="cam">
   <video id="v" playsinline muted autoplay></video>
@@ -113,7 +113,7 @@ body.camon .cam{position:sticky;bottom:calc(100px + env(safe-area-inset-bottom,0
   <button class="pill circ" id="off" aria-label="Tắt camera"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   <button class="pill pb" id="un">Xóa ảnh cuối</button>
   <button class="shut" id="shot" aria-label="Chụp"></button>
-  <button class="pill pb" id="nx">Chi bộ mới</button>
+  <button class="pill pb" id="nx">Tài liệu mới</button>
 </div>
 <div class="row" id="starts">
   <button class="btn pri wide" id="on">Chụp nhanh</button>
@@ -122,7 +122,7 @@ body.camon .cam{position:sticky;bottom:calc(100px + env(safe-area-inset-bottom,0
 </div>
 <input type="file" id="f1" accept="image/*" capture="environment" hidden>
 <input type="file" id="f2" accept="image/*" multiple hidden>
-<div class="row" style="margin-top:10px"><button class="btn wide" id="nx2">Kết thúc chi bộ, sang chi bộ tiếp theo</button></div>
+<div class="row" style="margin-top:10px"><button class="btn wide" id="nx2">Kết thúc tài liệu, sang tài liệu tiếp theo</button></div>
 <div class="msg" id="cmsg"></div>
 
 <div class="cap">Trang đã chụp</div>
@@ -134,7 +134,7 @@ body.camon .cam{position:sticky;bottom:calc(100px + env(safe-area-inset-bottom,0
   <div class="rw col"><span>Dung lượng</span><div class="seg" data-for="q"><button data-v="0">Siêu nhẹ</button><button data-v="1">Cân bằng</button><button data-v="2">Chất lượng</button></div></div>
   <div class="rw col"><span>Màu sắc</span><div class="seg" data-for="c"><button data-v="0">Giữ màu</button><button data-v="1">Đen trắng</button></div></div>
   <div class="rw col"><span>Khổ trang</span><div class="seg" data-for="p"><button data-v="0">Vừa khít ảnh</button><button data-v="1">A4</button></div></div>
-  <div class="rw"><span>Trang bìa ghi tên chi bộ</span><input class="sw" type="checkbox" id="cov" checked></div>
+  <div class="rw"><span>Trang bìa ghi tên tài liệu</span><input class="sw" type="checkbox" id="cov" checked></div>
   <div class="rw"><span>Luôn xoay ảnh thành khổ dọc</span><input class="sw" type="checkbox" id="port" checked></div>
 </div>
 <input type="hidden" id="q" value="1"><input type="hidden" id="c" value="0"><input type="hidden" id="p" value="0">
@@ -170,9 +170,9 @@ body.camon .cam{position:sticky;bottom:calc(100px + env(safe-area-inset-bottom,0
 <div class="scrim" id="scrim"></div>
 <div class="sheet glass" id="nsheet"><div>
   <div class="grab"></div>
-  <h2>Chi bộ tiếp theo</h2>
-  <p class="mut">Tên này được in trên trang bìa trước ảnh của chi bộ.</p>
-  <input type="text" id="nn" placeholder="Ví dụ: Chi bộ số 3" autocomplete="off">
+  <h2>Tài liệu tiếp theo</h2>
+  <p class="mut">Tên này được in trên trang bìa trước ảnh của tài liệu.</p>
+  <input type="text" id="nn" placeholder="Ví dụ: Biên bản họp số 3" autocomplete="off">
   <div class="row"><button class="btn" id="nc">Hủy</button><button class="btn pri" id="ng">Bắt đầu chụp</button></div>
 </div></div>
 <div class="sheet glass" id="sheet"><div>
@@ -212,12 +212,20 @@ function fit(src,w,h){
 function toBlob(cv,q){return new Promise(function(r){cv.toBlob(r,"image/jpeg",q)})}
 function cur(){return B[B.length-1]}
 function total(){return B.reduce(function(a,b){return a+b.ph.length},0)}
-function cname(b,i){return b.name.trim()||"Chi bộ "+(i+1)}
+function cname(b,i){return b.name.trim()||"Tài liệu "+(i+1)}
+/* Chưa có tên mà chụp ảnh đầu tiên: hỏi xác nhận. Đồng ý thì chụp không cần tên. */
+function needName(){
+  var c=cur();
+  if(c.ph.length||c.name.trim()||c.skip)return false;
+  if(confirm("Bạn chưa nhập tên tài liệu. Vẫn chụp mà không đặt tên?")){c.skip=true;return false}
+  var bn=$("bn");bn.scrollIntoView({block:"center",behavior:"smooth"});setTimeout(function(){bn.focus()},300);
+  return true;
+}
 async function push(cv){
   var b=await toBlob(cv,.9);
   cur().ph.push({id:nid++,blob:b,url:URL.createObjectURL(b),w:cv.width,h:cv.height});render();
 }
-function newBatch(n){if(!cur().ph.length)cur().name=n;else B.push({name:n,ph:[]});render()}
+function newBatch(n){if(!cur().ph.length){cur().name=n;cur().skip=false}else B.push({name:n,ph:[]});render()}
 async function addBlob(file){
   var bmp;
   try{bmp=await createImageBitmap(file,{imageOrientation:"from-image"})}
@@ -226,6 +234,7 @@ async function addBlob(file){
   await push(cv);
 }
 async function addFiles(list){
+  if(needName())return;
   say("Đang xử lý ảnh…");
   for(var i=0;i<list.length;i++){try{await addBlob(list[i])}catch(e){say("Không đọc được một ảnh.")}}
   say("");
@@ -252,6 +261,7 @@ $("sw").onclick=function(){facing=facing==="environment"?"user":"environment";st
 document.addEventListener("visibilitychange",function(){if(document.hidden&&stream)stopCam()});
 $("shot").onclick=async function(){
   var v=$("v");if(!v.videoWidth)return;
+  if(needName())return;
   var fl=$("fl");fl.classList.add("f");setTimeout(function(){fl.classList.remove("f")},60);
   if(navigator.vibrate)navigator.vibrate(15);
   await push(fit(v,v.videoWidth,v.videoHeight));
@@ -284,10 +294,10 @@ function render(){
   B.forEach(function(b,bi){
     if(!b.ph.length&&bi<last_)return;
     var h=document.createElement("div");h.className="bh";
-    if(bi===last_){var sp=document.createElement("span");sp.style.flex="1";sp.style.color="var(--tx)";sp.style.fontWeight="600";sp.textContent="Đang chụp · "+cname(b,bi)+" · "+b.ph.length+" ảnh";h.appendChild(sp)}
-    else{var inp=document.createElement("input");inp.type="text";inp.value=b.name;inp.placeholder=cname(b,bi);inp.oninput=function(){b.name=inp.value};h.appendChild(inp);
+    if(bi===last_){var sp=document.createElement("span");sp.style.flex="1";sp.style.color="var(--tx)";sp.style.fontWeight="600";sp.textContent="Đang chụp · "+(b.name.trim()||"Chưa đặt tên")+" · "+b.ph.length+" ảnh";h.appendChild(sp)}
+    else{var inp=document.createElement("input");inp.type="text";inp.value=b.name;inp.placeholder=b.skip?"Chưa đặt tên":cname(b,bi);inp.oninput=function(){b.name=inp.value};h.appendChild(inp);
       var c=document.createElement("span");c.textContent=b.ph.length+" ảnh";h.appendChild(c);
-      var dl=document.createElement("button");dl.textContent="Xóa";dl.onclick=function(){if(confirm("Xóa cả chi bộ này?")){b.ph.forEach(function(p){URL.revokeObjectURL(p.url)});B.splice(B.indexOf(b),1);render()}};h.appendChild(dl)}
+      var dl=document.createElement("button");dl.textContent="Xóa";dl.onclick=function(){if(confirm("Xóa cả tài liệu này?")){b.ph.forEach(function(p){URL.revokeObjectURL(p.url)});B.splice(B.indexOf(b),1);render()}};h.appendChild(dl)}
     g.appendChild(h);
     var gr=document.createElement("div");gr.className="grid";
     b.ph.forEach(function(p,i){
@@ -305,13 +315,13 @@ function render(){
   });
   var t=total(),nb=B.filter(function(b){return b.ph.length}).length;
   $("empty").parentNode.style.display=t?"none":"";
-  $("info").textContent=t+" ảnh · "+nb+" chi bộ";
-  $("bd").textContent=cname(cur(),B.length-1)+" · "+cur().ph.length+" ảnh";
+  $("info").textContent=t+" ảnh · "+nb+" tài liệu";
+  $("bd").textContent=(cur().name.trim()||"Chưa đặt tên")+" · "+cur().ph.length+" ảnh";
   if(document.activeElement!==$("bn"))$("bn").value=cur().name;
   $("exp").disabled=busy||!t;$("clr").disabled=busy||!t;
 }
 function swap(a,i,j){var t=a[i];a[i]=a[j];a[j]=t;render()}
-$("clr").onclick=function(){if(!total()||!confirm("Xóa toàn bộ ảnh và chi bộ?"))return;B.forEach(function(b){b.ph.forEach(function(p){URL.revokeObjectURL(p.url)})});B=[{name:"",ph:[]}];render()};
+$("clr").onclick=function(){if(!total()||!confirm("Xóa toàn bộ ảnh và tài liệu?"))return;B.forEach(function(b){b.ph.forEach(function(p){URL.revokeObjectURL(p.url)})});B=[{name:"",ph:[]}];render()};
 
 /* ---------- cài đặt ---------- */
 function applyMask(){
@@ -452,13 +462,14 @@ $("exp").onclick=async function(){
     var pr=PRESETS[+$("q").value],gray=$("c").value==="1",a4=$("p").value==="1",imgs=[],k=0,T=total(),nb=0,only="";
     for(var bi=0;bi<B.length;bi++){
       var b=B[bi];if(!b.ph.length)continue;nb++;only=b.name.trim();
-      if($("cov").checked)imgs.push(await cover(cname(b,bi)));
+      /* Không có tên tài liệu thì không tạo trang bìa */
+      if($("cov").checked&&b.name.trim())imgs.push(await cover(b.name.trim()));
       for(var i=0;i<b.ph.length;i++){k++;sm("Đang nén ảnh "+k+"/"+T,false,Math.round((k-1)/T*100));imgs.push(await recode(b.ph[i],pr,gray));await new Promise(function(r){setTimeout(r,0)})}
     }
     var blob=buildPdf(imgs,a4),d=new Date(),z=function(n){return("0"+n).slice(-2)};
     var name=(nb===1&&only?slug(only)||"scan":"scan")+"-"+d.getFullYear()+z(d.getMonth()+1)+z(d.getDate())+"-"+z(d.getHours())+z(d.getMinutes())+".pdf";
     last={blob:blob,name:name};
-    $("stt").textContent="PDF đã sẵn sàng";sm(name+" · "+imgs.length+" trang · "+nb+" chi bộ · "+fmt(blob.size));$("sbtns").style.display="";
+    $("stt").textContent="PDF đã sẵn sàng";sm(name+" · "+imgs.length+" trang · "+nb+" tài liệu · "+fmt(blob.size));$("sbtns").style.display="";
     if($("tg").value!=="0")await send(blob,name);
   }catch(e){$("stt").textContent="Có lỗi";sm("Không tạo được PDF: "+(e&&e.message||e))}
   busy=false;render();
