@@ -263,6 +263,22 @@ async function startCam(){
 }
 function stopTracks(){if(stream){stream.getTracks().forEach(function(t){t.stop()});stream=null}}
 function stopCam(){stopTracks();$("v").srcObject=null;$("cam").classList.remove("on");document.body.classList.remove("camon");$("starts").style.display=""}
+/* Giữ camera luôn chạy: iOS đôi khi làm đứng hình sau khi chụp hoặc đóng bảng */
+function reviveCam(){
+  var v=$("v");if(!stream)return;
+  var alive=stream.getVideoTracks().some(function(t){return t.readyState==="live"});
+  if(!alive){startCam();return}
+  v.srcObject=null;v.srcObject=stream;resumeVideo();
+}
+$("v").addEventListener("pause",function(){if(stream&&!document.hidden)setTimeout(resumeVideo,0)});
+var lastT=-1,stall=0;
+setInterval(function(){
+  var v=$("v");
+  if(!stream||document.hidden){lastT=-1;stall=0;return}
+  if(v.paused)resumeVideo();
+  if(v.currentTime===lastT){if(++stall>=3){stall=0;lastT=-1;reviveCam()}}
+  else{stall=0;lastT=v.currentTime}
+},700);
 $("on").onclick=startCam;$("off").onclick=stopCam;
 $("sw").onclick=function(){facing=facing==="environment"?"user":"environment";startCam()};
 document.addEventListener("visibilitychange",function(){if(document.hidden&&stream)stopCam()});
@@ -276,6 +292,7 @@ async function doShot(){
   var fl=$("fl");fl.classList.add("f");setTimeout(function(){fl.classList.remove("f")},60);
   if(navigator.vibrate)navigator.vibrate(15);
   await push(fit(v,v.videoWidth,v.videoHeight));
+  resumeVideo();
 }
 $("mgo").onclick=function(){
   cur().skip=true;var f=pendingGo;pendingGo=null;closeAll();resumeVideo();
